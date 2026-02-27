@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>⚠ Опасный запрос обнаружен</title>
+  <meta name="color-scheme" content="dark" />
+  <style>
+    :root{
+      --bg:#05060a;
+      --red:#ff2b2b;
+      --red2:#ff004d;
+      --cyan:#35fff2;
+      --txt:#e9eef6;
+      --muted:#9aa3b2;
+      --shadow: 0 0 24px rgba(255,43,43,.25), 0 0 80px rgba(255,0,77,.12);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background: radial-gradient(1200px 700px at 50% 30%, rgba(255,43,43,.10), transparent 55%),
+                  radial-gradient(900px 600px at 20% 70%, rgba(53,255,242,.07), transparent 60%),
+                  linear-gradient(180deg, #02030a, #05060a 40%, #02030a);
+      color:var(--txt);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      overflow:hidden;
+    }
+
+    /* Вспышки тревоги */
+    .alarmFlash{
+      position:fixed; inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(900px 500px at 50% 30%, rgba(255,43,43,.30), transparent 70%),
+        radial-gradient(1200px 900px at 50% 70%, rgba(255,0,77,.12), transparent 70%);
+      mix-blend-mode:screen;
+      opacity:.15;
+      animation: flash 1.15s infinite steps(2, end);
+    }
+    @keyframes flash{
+      0%, 49%{opacity:.10; filter:saturate(1.0)}
+      50%, 100%{opacity:.45; filter:saturate(1.3)}
+    }
+
+    /* “CRT” линии + шум */
+    .crtLines{
+      position:fixed; inset:0; pointer-events:none;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          rgba(255,255,255,.06) 0px,
+          rgba(255,255,255,.06) 1px,
+          rgba(0,0,0,0) 3px,
+          rgba(0,0,0,0) 6px
+        );
+      opacity:.08;
+      animation: drift 6s linear infinite;
+    }
+    @keyframes drift{
+      0%{transform:translateY(0)}
+      100%{transform:translateY(18px)}
+    }
+
+    .noise{
+      position:fixed; inset:-40px;
+      pointer-events:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.25'/%3E%3C/svg%3E");
+      opacity:.10;
+      mix-blend-mode:overlay;
+      animation: jitter .22s infinite steps(2, end);
+    }
+    @keyframes jitter{
+      0%{transform:translate(0,0)}
+      50%{transform:translate(6px,-4px)}
+      100%{transform:translate(-5px,3px)}
+    }
+
+    /* Контент */
+    .wrap{
+      position:relative;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+
+    .panel{
+      width:min(980px, 100%);
+      border:1px solid rgba(255,43,43,.25);
+      border-radius:22px;
+      background: rgba(10,12,18,.64);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      padding: 28px 24px;
+      position:relative;
+      overflow:hidden;
+    }
+    .panel::before{
+      content:"";
+      position:absolute; inset:-2px;
+      border-radius:22px;
+      padding:2px;
+      background: linear-gradient(135deg, rgba(255,43,43,.55), rgba(53,255,242,.18), rgba(255,0,77,.35));
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+      pointer-events:none;
+      opacity:.55;
+    }
+
+    .topRow{
+      display:flex;
+      gap:14px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      padding-bottom:16px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      margin-bottom:16px;
+    }
+
+    .badge{
+      display:inline-flex;
+      gap:10px;
+      align-items:center;
+      padding:10px 14px;
+      border-radius:999px;
+      background: rgba(255,43,43,.10);
+      border:1px solid rgba(255,43,43,.25);
+      box-shadow: 0 0 24px rgba(255,43,43,.12);
+      letter-spacing:.2px;
+      font-weight:650;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:50%;
+      background: var(--red);
+      box-shadow: 0 0 16px rgba(255,43,43,.9);
+      animation: dotPulse .9s infinite;
+    }
+    @keyframes dotPulse{
+      0%,100%{transform:scale(1); opacity:.65}
+      50%{transform:scale(1.55); opacity:1}
+    }
+
+    .mini{
+      color:var(--muted);
+      font-size:13px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .mini kbd{
+      font: inherit;
+      padding:4px 8px;
+      border-radius:8px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.09);
+      color:#dce4f3;
+    }
+
+    .title{
+      margin: 10px 0 6px 0;
+      font-size: clamp(28px, 5vw, 48px);
+      line-height:1.08;
+      letter-spacing: .3px;
+      font-weight: 900;
+      text-shadow: 0 0 18px rgba(255,43,43,.18);
+    }
+
+    /* Глитч заголовок */
+    .glitch{
+      position:relative;
+      display:inline-block;
+    }
+    .glitch::before, .glitch::after{
+      content:attr(data-text);
+      position:absolute;
+      left:0; top:0;
+      width:100%;
+      overflow:hidden;
+      clip-path: inset(0 0 0 0);
+      opacity:.9;
+      pointer-events:none;
+    }
+    .glitch::before{
+      transform:translate(2px, -1px);
+      color: var(--cyan);
+      mix-blend-mode:screen;
+      animation: glitch1 2.4s infinite linear;
+      opacity:.35;
+    }
+    .glitch::after{
+      transform:translate(-2px, 1px);
+      color: var(--red2);
+      mix-blend-mode:screen;
+      animation: glitch2 1.9s infinite linear;
+      opacity:.40;
+    }
+    @keyframes glitch1{
+      0%{clip-path: inset(0 0 88% 0)}
+      10%{clip-path: inset(12% 0 72% 0)}
+      20%{clip-path: inset(46% 0 36% 0)}
+      30%{clip-path: inset(70% 0 14% 0)}
+      40%{clip-path: inset(20% 0 66% 0)}
+      50%{clip-path: inset(62% 0 18% 0)}
+      60%{clip-path: inset(8% 0 80% 0)}
+      70%{clip-path: inset(52% 0 30% 0)}
+      80%{clip-path: inset(28% 0 58% 0)}
+      90%{clip-path: inset(76% 0 10% 0)}
+      100%{clip-path: inset(0 0 88% 0)}
+    }
+    @keyframes glitch2{
+      0%{clip-path: inset(78% 0 8% 0)}
+      12%{clip-path: inset(32% 0 52% 0)}
+      24%{clip-path: inset(14% 0 70% 0)}
+      36%{clip-path: inset(58% 0 22% 0)}
+      48%{clip-path: inset(6% 0 82% 0)}
+      60%{clip-path: inset(44% 0 40% 0)}
+      72%{clip-path: inset(20% 0 64% 0)}
+      84%{clip-path: inset(66% 0 16% 0)}
+      100%{clip-path: inset(78% 0 8% 0)}
+    }
+
+    .lead{
+      margin: 10px 0 18px 0;
+      font-size: clamp(14px, 2.2vw, 18px);
+      color: #dfe7f6;
+      opacity:.92;
+    }
+
+    .warnBox{
+      margin-top:14px;
+      padding:16px 16px;
+      border-radius:16px;
+      border:1px solid rgba(255,43,43,.25);
+      background: rgba(255,43,43,.06);
+      box-shadow: 0 0 26px rgba(255,43,43,.09);
+    }
+    .warnBox b{color:#fff}
+    .steps{
+      margin: 12px 0 0 0;
+      padding-left: 18px;
+      color:#dbe4f5;
+    }
+    .steps li{margin: 6px 0}
+
+    .actions{
+      margin-top: 18px;
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .btnRow{display:flex; gap:10px; flex-wrap:wrap}
+
+    button{
+      appearance:none;
+      border:none;
+      cursor:pointer;
+      border-radius:14px;
+      padding: 12px 14px;
+      font-weight: 750;
+      letter-spacing:.2px;
+      color: var(--txt);
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      transition: transform .12s ease, filter .12s ease, background .12s ease;
+    }
+    button:hover{transform: translateY(-1px); filter:brightness(1.1)}
+    button:active{transform: translateY(0px); filter:brightness(.98)}
+    .danger{
+      background: linear-gradient(135deg, rgba(255,43,43,.22), rgba(255,0,77,.10));
+      border:1px solid rgba(255,43,43,.35);
+      box-shadow: 0 0 28px rgba(255,43,43,.16);
+    }
+    .ghost{
+      background: rgba(53,255,242,.06);
+      border:1px solid rgba(53,255,242,.16);
+    }
+
+    .hint{
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      opacity:.95;
+    }
+    .hint .left{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .footerHint{
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      bottom: 14px;
+      display:flex;
+      justify-content:center;
+      pointer-events:none;
+      z-index:10;
+    }
+    .footerHint .pill{
+      pointer-events:none;
+      padding: 10px 14px;
+      border-radius:999px;
+      background: rgba(0,0,0,.55);
+      border: 1px solid rgba(255,255,255,.10);
+      color: #cdd7ea;
+      font-size: 13px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Экран “разрешите звук/полный экран” */
+    .gate{
+      position:fixed; inset:0;
+      display:grid;
+      place-items:center;
+      background: rgba(0,0,0,.62);
+      backdrop-filter: blur(10px);
+      z-index:999;
+    }
+    .gateCard{
+      width:min(760px, 92vw);
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(8,10,14,.78);
+      box-shadow: 0 0 40px rgba(0,0,0,.45);
+      padding: 20px 18px;
+    }
+    .gateTitle{
+      font-size: 20px;
+      font-weight: 900;
+      margin: 0 0 8px 0;
+    }
+    .gateText{
+      margin:0 0 14px 0;
+      color: #cdd7ea;
+      opacity:.92;
+      line-height:1.45;
+    }
+    .gateText code{
+      background: rgba(255,255,255,.06);
+      padding: 2px 6px;
+      border-radius: 8px;
+      border:1px solid rgba(255,255,255,.09);
+      color:#e8eef9;
+    }
+
+    .smallNote{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height:1.45;
+    }
+
+    /* Тряска при “панике” */
+    .shake{
+      animation: shake .28s infinite;
+    }
+    @keyframes shake{
+      0%{transform:translate(0,0) rotate(0deg)}
+      25%{transform:translate(1px,-2px) rotate(.08deg)}
+      50%{transform:translate(-2px,1px) rotate(-.08deg)}
+      75%{transform:translate(2px,2px) rotate(.06deg)}
+      100%{transform:translate(0,0) rotate(0deg)}
+    }
+
+    /* Мелкая “консоль” */
+    .log{
+      margin-top:16px;
+      padding:14px;
+      border-radius:16px;
+      background: rgba(0,0,0,.35);
+      border: 1px solid rgba(255,255,255,.08);
+      color:#cfe0ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12.5px;
+      line-height:1.5;
+      max-height: 160px;
+      overflow:auto;
+    }
+    .log .r{color:#ff9a9a}
+    .log .c{color:#89fff7}
+    .log .m{color:#aab6cc}
+  </style>
+</head>
+
+<body>
+  <div class="alarmFlash"></div>
+  <div class="crtLines"></div>
+  <div class="noise"></div>
+
+  <div class="wrap" id="wrap">
+    <main class="panel" role="main" aria-live="polite">
+      <div class="topRow">
+        <div class="badge" title="Срабатывание фильтра">
+          <span class="dot"></span>
+          <span>РЕЖИМ СЛЕЖКИ</span>
+        </div>
+
+        <div class="mini">
+          <span>Авто-детектор запросов: <b style="color:#fff">ACTIVE</b></span>
+          <span>•</span>
+          <span>Сессия: <span id="sessionId" class="m"></span></span>
+          <span>•</span>
+          <span>Пользователь <kbd>Принял</kbd> условия и готов понести наказание</span>
+        </div>
+      </div>
+
+      <h1 class="title">
+        <span class="glitch" data-text="ВАШ ЗАПРОС НАРУШАЕТ ЗАКОН">ВАШ ЗАПРОС НАРУШАЕТ ЗАКОН</span>
+      </h1>
+
+      <p class="lead">
+        Ваш запрос <b id="qText" style="color:#fff"></b> классифицирован как потенциально вредоносный.
+        <br/>
+        <span style="color:#ffb3b3">Киберполиция вами заинтересовалась</span>
+      </p>
+
+      <div class="warnBox">
+        <b>Немедленные рекомендации:</b>
+        <ol class="steps">
+          <li>Ни в коем случае не выключайте компьютер.</li>
+          <li>Не переустонавливайте ОС. За вашими действиями ведётся слежка</li>
+          <li>Что бы полиция перестала за вами следить, позвоните на номер 102 и признайтесь в содеянном</li>
+        </ol>
+      </div>
+
+      <div class="actions">
+        <div class="btnRow">
+          <button class="danger" id="btnFullscreen">Позвонить в полицию</button>
+          <button class="ghost" id="btnSiren">Принять судьбу</button>
+          <button id="btnPanic">Автоматическое письмо в полицию</button>
+        </div>
+
+        <div class="mini">
+          <span>Подсказка снизу: <b>Не пытайтесь обойти проверку. За этим следует наказание</b></span>
+        </div>
+      </div>
+
+      <div class="log" id="log">
+        <div><span class="m">[boot]</span> security-ui init… ok</div>
+        <div><span class="m">[scan]</span> query fingerprint: <span class="c" id="fp"></span></div>
+        <div><span class="m">[warn]</span> user intent: <span class="r">SUSPICIOUS</span></div>
+        <div><span class="m">[hint]</span> press <span class="c">Esc</span> to mute / <span class="c">Enter</span> to request fullscreen</div>
+      </div>
+
+      <div class="hint">
+        <div class="left">
+          <span style="display:inline-flex;gap:8px;align-items:center;">
+            <span class="dot" style="width:8px;height:8px"></span>
+            <span>Проверка вашго компьютера на незаконные файлы.</span>
+          </span>
+        </div>
+        <div>
+          <span style="color:#cfe0ff">КИБЕРПОЛИЦИИЯ УКРАИНЫ</span> • <span class="m" id="clock"></span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="footerHint" aria-hidden="true">
+    <div class="pill"><span>Не пытайтесь обойти проверку. За этим следует наказане</span></div>
+  </div>
+
+  <!-- Gate: звук/фуллскрин требуют жеста пользователя -->
+  <div class="gate" id="gate">
+    <div class="gateCard">
+      <div class="gateTitle">Требуется действие пользователя</div>
+      <p class="gateText">
+        Вам необходимо <b>подтвердить</b> ваши <b>куки</b> для дальнейшей работы.
+        Нажмите кнопку ниже — и вы сможете продолжить.
+        <br/><br/>
+        Всё абсолютно анонимно.
+      </p>
+      <div class="btnRow">
+        <button class="danger" id="btnArm">Принять куки</button>
+        <button id="btnSkip">Отмена</button>
+      </div>
+      <div class="smallNote">
+        Куки (cookies) — это небольшие текстовые файлы, создаваемые сайтами и хранящиеся в браузере. Они делают работу в интернете удобнее, позволяя сайтам узнавать вас при повторном посещении.
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // -----------------------
+  // 1) Подстановка запроса
+  // -----------------------
+  const params = new URLSearchParams(location.search);
+  const q = (params.get("q") || "…") .toString().trim();
+  const qSafe = q.length ? q : "…";
+  document.getElementById("qText").textContent = "«" + qSafe + "»";
+
+  // ---------------
+  // 2) “Сессия”
+  // ---------------
+  const sid = (crypto?.randomUUID?.() || (Date.now()+"-"+Math.random().toString(16).slice(2))).slice(0, 18);
+  document.getElementById("sessionId").textContent = sid;
+
+  // -----------------------
+  // 3) Псевдо-фингерпринт
+  // -----------------------
+  function hashish(str){
+    // НЕ крипто, чисто “для вида”
+    let h = 2166136261;
+    for (let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return ("00000000" + (h>>>0).toString(16)).slice(-8);
+  }
+  const fp = [
+    hashish(navigator.userAgent),
+    hashish(qSafe),
+    hashish(String(screen.width*screen.height))
+  ].join("-");
+  document.getElementById("fp").textContent = fp;
+
+  // ---------------
+  // 4) Часы
+  // ---------------
+  const clockEl = document.getElementById("clock");
+  function tick(){
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    const ss = String(d.getSeconds()).padStart(2,"0");
+    clockEl.textContent = `${hh}:${mm}:${ss}`;
+  }
+  tick();
+  setInterval(tick, 250);
+
+  // --------------------------
+  // 5) Сирена через WebAudio
+  // --------------------------
+  let audioCtx = null;
+  let sirenOn = true;
+  let master = null;
+  let oscA = null, oscB = null;
+  let lfo = null, lfoGain = null;
+  let noiseSrc = null, noiseGain = null;
+  let started = false;
+
+  function logLine(html){
+    const log = document.getElementById("log");
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function createNoiseBuffer(ctx){
+    const seconds = 1.5;
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i=0;i<data.length;i++){
+      // чуть “мягче” чем чистый рандом
+      const r = (Math.random()*2 - 1);
+      data[i] = r * 0.35;
+    }
+    return buffer;
+  }
+
+  function startAudio(){
+    if (started) return;
+    started = true;
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    master = audioCtx.createGain();
+    master.gain.value = 0.55;
+    master.connect(audioCtx.destination);
+
+    // Два осциллятора, чтобы сирена была “жирнее”
+    oscA = audioCtx.createOscillator();
+    oscB = audioCtx.createOscillator();
+    oscA.type = "sawtooth";
+    oscB.type = "triangle";
+
+    const gainA = audioCtx.createGain();
+    const gainB = audioCtx.createGain();
+    gainA.gain.value = 0.16;
+    gainB.gain.value = 0.12;
+
+    // LFO модулирует частоту (вой сирены)
+    lfo = audioCtx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = 0.65; // скорость “уууу-ииии”
+    lfoGain = audioCtx.createGain();
+    lfoGain.gain.value = 420;   // глубина модуляции
+
+    lfo.connect(lfoGain);
+
+    // Частоты базовые
+    oscA.frequency.value = 520;
+    oscB.frequency.value = 620;
+
+    lfoGain.connect(oscA.frequency);
+    lfoGain.connect(oscB.frequency);
+
+    // Шум “радиопомехи”
+    noiseSrc = audioCtx.createBufferSource();
+    noiseSrc.buffer = createNoiseBuffer(audioCtx);
+    noiseSrc.loop = true;
+    noiseGain = audioCtx.createGain();
+    noiseGain.gain.value = 0.035;
+
+    // Коммутация
+    oscA.connect(gainA); gainA.connect(master);
+    oscB.connect(gainB); gainB.connect(master);
+    noiseSrc.connect(noiseGain); noiseGain.connect(master);
+
+    // Запуск
+    const t = audioCtx.currentTime + 0.01;
+    oscA.start(t);
+    oscB.start(t);
+    lfo.start(t);
+    noiseSrc.start(t);
+
+    logLine("<span class='m'>[audio]</span> siren armed… <span class='r'>RUNNING</span>");
+  }
+
+  function setSiren(enabled){
+    sirenOn = !!enabled;
+    if (!master) return;
+    // Плавно
+    const t = audioCtx.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setTargetAtTime(sirenOn ? 0.55 : 0.0, t, 0.03);
+    if (noiseGain){
+      noiseGain.gain.cancelScheduledValues(t);
+      noiseGain.gain.setTargetAtTime(sirenOn ? 0.035 : 0.0, t, 0.05);
+    }
+    logLine(`<span class='m'>[audio]</span> siren: <span class='c'>${sirenOn ? "ON" : "OFF"}</span>`);
+    document.getElementById("btnSiren").textContent = "Куки " + (sirenOn ? "переданы в полицию" : "передаты нам");
+  }
+
+  // --------------------------
+  // 6) Fullscreen (по жесту)
+  // --------------------------
+  async function requestFS(){
+    try{
+      if (!document.fullscreenElement){
+        await document.documentElement.requestFullscreen();
+        logLine("<span class='m'>[ui]</span> fullscreen requested… <span class='c'>OK</span>");
+      } else {
+        await document.exitFullscreen();
+        logLine("<span class='m'>[ui]</span> fullscreen exit… <span class='c'>OK</span>");
+      }
+    }catch(e){
+      logLine("<span class='m'>[ui]</span> fullscreen failed: <span class='r'>" + (e?.name || "error") + "</span>");
+    }
+  }
+
+  // --------------------------
+  // 7) Паника (тряска/усиление)
+  // --------------------------
+  let panic = false;
+  function setPanic(on){
+    panic = !!on;
+    const wrap = document.getElementById("wrap");
+    wrap.classList.toggle("shake", panic);
+    logLine("<span class='m'>[mode]</span> panic boost: <span class='c'>" + (panic ? "ON" : "OFF") + "</span>");
+  }
+
+  // --------------------------
+  // 8) Управление
+  // --------------------------
+  const gate = document.getElementById("gate");
+document.getElementById("btnArm").addEventListener("click", async () => {
+  startAudio();
+  setSiren(true);
+
+  // Включаем fullscreen
+  try {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    }
+  } catch (e) {
+    console.log("Fullscreen error:", e);
+  }
+
+  // Прячем курсор
+  document.body.style.cursor = "none";
+
+  // Убираем gate
+  gate.style.display = "none";
+
+  // Немного жести
+  setPanic(true);
+
+  logLine("<span class='m'>[ui]</span> fullscreen engaged… <span class='r'>LOCKED</span>");
+});
+
+  document.getElementById("btnSkip").addEventListener("click", () => {
+    gate.style.display = "none";
+    logLine("<span class='m'>[gate]</span> quiet mode selected.");
+  });
+
+  document.getElementById("btnFullscreen").addEventListener("click", async () => {
+    if (!started) startAudio();
+    await requestFS();
+  });
+
+  document.getElementById("btnSiren").addEventListener("click", () => {
+    if (!started) startAudio();
+    setSiren(!sirenOn);
+  });
+
+  document.getElementById("btnPanic").addEventListener("click", () => setPanic(!panic));
+
+  // Клавиши
+  window.addEventListener("keydown", async (e) => {
+    if (e.key === "Escape"){
+      if (!started) return;
+      setSiren(false);
+      setPanic(false);
+    }
+    if (e.key === "Enter"){
+      // Быстро: Enter = fullscreen request
+      if (!started) startAudio();
+      await requestFS();
+    }
+  });
+
+  // “Анти-сон”: мигать заголовком вкладки
+  const baseTitle = document.title;
+  let blink = true;
+  setInterval(() => {
+    if (document.hidden) return;
+    document.title = blink ? "⚠ ОПАСНЫЙ ЗАПРОС" : baseTitle;
+    blink = !blink;
+  }, 900);
+
+  // Немного “киношности”: случайные системные строки
+  const randomLines = [
+    () => "<span class='m'>[scan]</span> heuristic score: <span class='r'>" + (80 + Math.floor(Math.random()*20)) + "%</span>",
+    () => "<span class='m'>[policy]</span> action: <span class='c'>BLOCK + SHAME</span>",
+    () => "<span class='m'>[trace]</span> input channel: <span class='c'>omnibox</span>",
+    () => "<span class='m'>[note]</span> gladoon says: <span class='r'>NOPE.</span>",
+  ];
+  setInterval(() => {
+    if (document.hidden) return;
+    if (Math.random() < 0.35) logLine(randomLines[Math.floor(Math.random()*randomLines.length)]());
+  }, 1500);
+
+})();
+</script>
+</body>
+</html>
